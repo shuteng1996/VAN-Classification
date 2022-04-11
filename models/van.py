@@ -8,15 +8,24 @@ from timm.models.registry import register_model
 from timm.models.vision_transformer import _cfg
 import math
 
+class DWConv(nn.Module):
+    def __init__(self, dim=768):
+        super(DWConv, self).__init__()
+        self.dwconv = nn.Conv2d(input_channels = dim, output_channels = dim, kernel_size = 3, stride = 1, padding = 1, bias=True, groups=dim
+#N + 2 * 1 - 3 = N - 1 = output_spatial_dim#
+    def forward(self, x):
+        x = self.dwconv(x)
+        return x
+    
 class Mlp(nn.Module):
     def __init__(self, in_features, hidden_features=None, out_features=None, act_layer=nn.GELU, drop=0.):
         super().__init__()
         out_features = out_features or in_features
         hidden_features = hidden_features or in_features
-        self.fc1 = nn.Conv2d(in_features, hidden_features, 1)
+        self.fc1 = nn.Conv2d(input_channels = in_features,output_channels = hidden_features, kernel_size = 1)       
         self.dwconv = DWConv(hidden_features)
         self.act = act_layer()
-        self.fc2 = nn.Conv2d(hidden_features, out_features, 1)
+        self.fc2 = nn.Conv2d(input_channels = hidden_features,output_channels = out_features, kernel_size = 1)
         self.drop = nn.Dropout(drop)
         self.apply(self._init_weights)
 
@@ -50,9 +59,9 @@ class Mlp(nn.Module):
 class LKA(nn.Module):
     def __init__(self, dim):
         super().__init__()
-        self.conv0 = nn.Conv2d(dim, dim, 5, padding=2, groups=dim)
-        self.conv_spatial = nn.Conv2d(dim, dim, 7, stride=1, padding=9, groups=dim, dilation=3)
-        self.conv1 = nn.Conv2d(dim, dim, 1)
+        self.conv0 = nn.Conv2d(input_channels = dim, output_channels = dim, kernel_size = 5, padding=2, groups=dim)
+        self.conv_spatial = nn.Conv2d(input_channels = dim, output_channels = dim, kernel_size = 7, stride=1, padding=9, groups=dim, dilation=3)
+        self.conv1 = nn.Conv2d(input_channels = dim, output_channels = dim, kernel_size = 1)
 
 
     def forward(self, x):
@@ -68,10 +77,10 @@ class Attention(nn.Module):
     def __init__(self, d_model):
         super().__init__()
 
-        self.proj_1 = nn.Conv2d(d_model, d_model, 1)
+        self.proj_1 = nn.Conv2d(input_channels = d_model, output_channels = d_model, kernel_size = 1)
         self.activation = nn.GELU()
-        self.spatial_gating_unit = LKA(d_model)
-        self.proj_2 = nn.Conv2d(d_model, d_model, 1)
+        self.spatial_gating_unit = LKA(input_channels = d_model)
+        self.proj_2 = nn.Conv2d(input_channels = d_model,output_channels = d_model,kernel_size = 1)
 
     def forward(self, x):
         shorcut = x.clone()
@@ -244,14 +253,6 @@ class VAN(nn.Module):
         return x
 
 
-class DWConv(nn.Module):
-    def __init__(self, dim=768):
-        super(DWConv, self).__init__()
-        self.dwconv = nn.Conv2d(dim, dim, 3, 1, 1, bias=True, groups=dim)
-
-    def forward(self, x):
-        x = self.dwconv(x)
-        return x
 
 
 def _conv_filter(state_dict, patch_size=16):
